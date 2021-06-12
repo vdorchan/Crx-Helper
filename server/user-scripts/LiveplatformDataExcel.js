@@ -189,8 +189,14 @@ const {
       show(document.querySelector('.glory-toast'))
     })()
 
+    const dpr = devicePixelRatio || 1
+
+    for (const pic of pics) {
+      pic.y *= dpr
+    }
+
     const base64 = await mergeImages(pics, {
-      height: fullHeight
+      height: fullHeight * dpr
     })
 
     return [base64, fullHeight]
