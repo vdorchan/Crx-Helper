@@ -5,6 +5,7 @@
 // @version        0.1.2
 // @require        https://moli-static.oss-cn-hangzhou.aliyuncs.com/js-libs/babel-polyfill/polyfill.js
 // @require        https://moli-static.oss-cn-hangzhou.aliyuncs.com/js-libs/exceljs.min.js
+// @require        https://moli-static.oss-cn-hangzhou.aliyuncs.com/js-libs/idb.min.js
 // @hidden         false
 // ==/MoliHelperUserScript==
 
@@ -180,9 +181,8 @@ const {
     pics[pics.length - 1].y -= diff
 
     void (function restoreShowDom() {
-      document.getElementById('TbliveStickyHeader').style.visibility = ''
+      show(document.getElementById('TbliveStickyHeader'))
       show(operationPanel, true)
-      document.querySelector('.f-tblive-TbliveModuleCard .expand-btn')
       document.querySelector(
         '.f-tblive-TbliveModuleCard'
       ).previousSibling.style.minHeight = ''
@@ -192,8 +192,6 @@ const {
     const base64 = await mergeImages(pics, {
       height: fullHeight
     })
-
-    // download(base64, 'screenshot.jpeg')
 
     return [base64, fullHeight]
   },
@@ -308,6 +306,7 @@ const {
   },
 
   hide(dom, removeDom) {
+    if (!dom) return
     if (removeDom) {
       dom.style.display = 'none'
     } else {
@@ -316,6 +315,7 @@ const {
   },
 
   show(dom, removeDom) {
+    if (!dom) return
     if (removeDom) dom.style.display = ''
     else dom.style.visibility = 'visible'
   },
@@ -389,18 +389,22 @@ const createButton = (text, parentNode = operationPanel, className = '') => {
 
 const prepareForCapture = async () => {
   window.scrollTo(0, 0)
-  const preSallRadio = $$('.f-tblive-Radio .radio.false')
-
-  if (preSallRadio) {
-    preSallRadio.click()
+  try {
+    const preSallRadio = $$('.f-tblive-Radio .radio.false')
+  
+    if (preSallRadio) {
+      preSallRadio.click()
+    }
+  
+    const buttonExpand = document.querySelector('#TbliveStickyHeader .expand-btn')
+    if (buttonExpand.textContent.includes('展开')) {
+      buttonExpand.click()
+    }
+  
+    await sleep(300)
+  } catch (error) {
+    console.log('prepareForCapture', error)
   }
-
-  const buttonExpand = document.querySelector('#TbliveStickyHeader .expand-btn')
-  if (buttonExpand.textContent.includes('展开')) {
-    buttonExpand.click()
-  }
-
-  await sleep(300)
 }
 
 // analysis dom and get the data
@@ -409,30 +413,27 @@ const getData = async () => {
 
   await prepareForCapture()
 
-  try {
-    data.set('_liveId', /liveId=\d+/.exec(location.search)[0])
-    data.set('导出截图', null)
-    data.set('数据统计时间', formatTime(Date.now()))
-    data.set('_id', Date.now())
-    data.set(
-      '开播时间',
-      /\d[^-]+/.exec($$('.live-info-card .time').textContent)[0].trim()
-    )
-    data.set('主播', $$('.f-tblive-TbliveHeader .name').textContent)
-    // data.set('直播封面图')
-    data.set('标题', $$('.live-info-card .title')?.textContent?.trim())
-    // data.set('直播链接')
+  data.set('_liveId', /liveId=\d+/.exec(location.search)[0])
+  data.set('导出截图', null)
+  data.set('数据统计时间', formatTime(Date.now()))
+  data.set('_id', Date.now())
+  data.set(
+    '开播时间',
+    /\d[^-]+/.exec($$('.live-info-card .time').textContent)[0].trim()
+  )
+  data.set('主播', $$('.f-tblive-TbliveHeader .name').textContent)
+  // data.set('直播封面图')
+  data.set('标题', $$('.live-info-card .title')?.textContent?.trim())
+  // data.set('直播链接')
 
-    const [base64, height] = await captureFullScreen()
+  const [base64, height] = await captureFullScreen()
 
-    data.set('导出截图', {
-      base64,
-      width: window.innerWidth,
-      height
-    })
-  } catch (err) {
-    console.log({ err })
-  }
+  data.set('导出截图', {
+    base64,
+    width: window.innerWidth,
+    height
+  })
+
 
   document.querySelectorAll('.f-tblive-MeasureBlock').forEach(block => {
     const title = block.querySelector('.name .text')?.textContent?.trim()
@@ -460,12 +461,12 @@ const getData = async () => {
 }
 
 // dispatcher for data list
-const dispatchLiveList = (action, payload) => {
+const dispatchLiveList = async (action, payload) => {
   console.log('dispatchLiveList', action, payload)
-  const getLiveListFromStorage = () => {
+  const getLiveListFromStorage = async () => {
     let list
     try {
-      list = localStorage.getItem(STORAGE_KEY)
+      list = await idb.get(STORAGE_KEY)
       list = JSON.parse(list)
       list = list.map(item => new Map(item))
     } finally {
@@ -516,7 +517,7 @@ const dispatchLiveList = (action, payload) => {
 ${mapList()}`
   }
 
-  let newLiveList = getLiveListFromStorage()
+  let newLiveList = await getLiveListFromStorage()
 
   switch (action) {
     case 'get':
@@ -539,7 +540,7 @@ ${mapList()}`
       return newLiveList
   }
 
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(newLiveList))
+  await idb.set(STORAGE_KEY, JSON.stringify(newLiveList))
   updateTable(newLiveList)
 
   return newLiveList
@@ -580,10 +581,10 @@ dataTableNotice.innerHTML = `
 <div style="
     display: flex;
     justify-content: flex-end;
-    padding-right: 10px;
+    padding: 10px;
     font-size: 12px;
 " class="is-small">
-  注意：截图时请勿操作页面，最多保存6条内容
+  注意：截图时请勿操作页面
 </div>
 `
 
@@ -613,13 +614,13 @@ const initPopoverDom = () => {
   }
 
   buttonAddToList.onclick = async () => {
-    dispatchLiveList('add', await getData())
+    await dispatchLiveList('add', await getData())
 
     toast('添加成功')
   }
 
   buttonBatchExport.onclick = async () => {
-    let list = dispatchLiveList('get')
+    let list = await dispatchLiveList('get')
 
     if (!list.length) {
       return toastError('没有可导出的数据！')
