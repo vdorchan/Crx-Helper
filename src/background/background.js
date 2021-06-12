@@ -115,6 +115,12 @@ const bgkd = (() => {
     }
 
     autoUpdate() {
+      if (!isProd) {
+        return setInterval(() => {
+          this.updateUserScripts()
+        }, 1000)
+      }
+
       chrome.alarms.create('autoUpdate', {
         periodInMinutes: 60
       })
