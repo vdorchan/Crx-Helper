@@ -25,7 +25,9 @@ const {
   hide,
   show,
   formatTime,
-  toast
+  toast,
+  toastError,
+  previewImage
 } = {
   async exportExcel(list) {
     const workbook = new ExcelJS.Workbook()
@@ -363,10 +365,37 @@ const {
     }, 0)
     setTimeout(() => {
       document.body.removeChild(div)
-    }, 1000 * 2)
+    }, 1000 * 1)
   },
   toastError(text) {
     return toast(text, true)
+  },
+  previewImage(src) {
+    const div = document.createElement('div')
+    div.style.width = '100%'
+    div.style.height = '100%'
+    div.style.overflow = 'auto'
+    div.style.background = 'rgba(0, 0, 0, 0.5)'
+    div.style.position = 'fixed'
+    div.style.top = 0
+    div.style.left = 0
+    div.style.zIndex = 9999
+    div.innerHTML = `
+<img style="width: 40vw; padding-top: 50px; margin-left: 30vw;" src="${src}" />
+    `
+
+    document.body.style.width = '100vw'
+    document.body.style.height = '100vh'
+    document.body.style.overflow = 'hidden'
+
+    div.addEventListener('click', () => {
+      document.body.removeChild(div)
+
+      document.body.style.width = ''
+      document.body.style.height = ''
+      document.body.style.overflow = ''
+    })
+    document.body.appendChild(div)
   }
 }
 
@@ -401,12 +430,13 @@ const prepareForCapture = async () => {
     if (preSallRadio) {
       preSallRadio.click()
     }
-  
-    const buttonExpand = document.querySelector('#TbliveStickyHeader .expand-btn')
+
+    const buttonExpand = document.querySelector(
+      '#TbliveStickyHeader .expand-btn'
+    )
     if (buttonExpand.textContent.includes('展开')) {
       buttonExpand.click()
     }
-  
     await sleep(300)
   } catch (error) {
     console.log('prepareForCapture', error)
@@ -439,7 +469,6 @@ const getData = async () => {
     width: window.innerWidth,
     height
   })
-
 
   document.querySelectorAll('.f-tblive-MeasureBlock').forEach(block => {
     const title = block.querySelector('.name .text')?.textContent?.trim()
@@ -497,6 +526,14 @@ const dispatchLiveList = async (action, payload) => {
         .map(
           live => `
 <tr>
+<td><img
+  data-preview="true"
+  src="${live.get('导出截图').base64}"
+  width="100"
+  height="100"
+  style="object-fit: cover; cursor: pointer;"
+  title="点击预览"
+/></td>
 <td style="text-align: left;">
   ${live.get('_liveId')}<br />
   ${live.get('标题')}
@@ -515,7 +552,8 @@ const dispatchLiveList = async (action, payload) => {
     dataTable.innerHTML = `
 <thead>
   <tr style="text-align: left;">
-    <th width="240">标题</th>
+    <th width="100">截图</th>
+    <th width="200">标题</th>
     <th>添加时间</th>
     <th>操作</th>
   </tr>
@@ -578,27 +616,25 @@ const dataTablePopover = document.createElement('div')
 const dataTable = document.createElement('table')
 const dataTableNoData = document.createElement('div')
 const dataTableNotice = document.createElement('div')
-const dataTableFooterButtons = document.createElement('div')
-dataTableFooterButtons.classList.add('footer-buttons')
+const dataTableFooter = document.createElement('div')
+const dataTableButtons = document.createElement('div')
+dataTableFooter.appendChild(dataTableNotice)
+dataTableFooter.appendChild(dataTableButtons)
+
+dataTableFooter.className = 'footer'
+dataTableButtons.className = 'footer-buttons'
 dataTableNoData.innerText = '暂无数据，请先添加'
 dataTableNoData.style.textAlign = 'center'
 dataTableNoData.style.padding = '20px'
-dataTableNotice.innerHTML = `
-<div style="
-    display: flex;
-    justify-content: flex-end;
-    padding: 10px;
-    font-size: 12px;
-" class="is-small">
-  注意：截图时请勿操作页面
-</div>
-`
+hide(dataTableNoData, true)
+
+dataTableNotice.className = 'footer-notice'
+dataTableNotice.textContent = '注意：截图时请勿操作页面'
 
 const initPopoverDom = () => {
   dataTablePopover.className = 'popover'
   dataTablePopover.appendChild(dataTable)
   dataTablePopover.appendChild(dataTableNoData)
-  dataTablePopover.appendChild(dataTableNotice)
   buttonShowPopoverContainer.appendChild(dataTablePopover)
   dataTable.onclick = e => {
     if (e.target.classList.contains('is-delete')) {
@@ -607,11 +643,11 @@ const initPopoverDom = () => {
     }
   }
 
-  const buttonClear = createButton('清空', dataTableFooterButtons)
-  const buttonAddToList = createButton('添加', dataTableFooterButtons)
+  const buttonClear = createButton('清空', dataTableButtons)
+  const buttonAddToList = createButton('添加', dataTableButtons)
   const buttonBatchExport = createButton(
     '批量导出',
-    dataTableFooterButtons,
+    dataTableButtons,
     'is-primary'
   )
 
@@ -645,11 +681,19 @@ const initPopoverDom = () => {
     }
   }
 
-  dataTablePopover.appendChild(dataTableFooterButtons)
+  dataTablePopover.appendChild(dataTableFooter)
 }
 
 initPopoverDom()
 dispatchLiveList('update')
+
+operationPanel.addEventListener('click', e => {
+  const { target } = e
+  if (target.dataset.preview) {
+    e.stopPropagation()
+    previewImage(target.getAttribute('src'))
+  }
+})
 
 // create dom and css
 document.body.appendChild(operationPanel)
@@ -846,7 +890,7 @@ fieldset[disabled] .textarea {
 }
 .popover {
   background: #fff;
-  width: 450px;
+  width: 540px;
   padding: 0 10px;
   border-radius: 10px;
   position: absolute;
@@ -868,12 +912,21 @@ table td, table th {
 }
 .popover thead th { position: sticky; top: 0; z-index: 1; }
 .popover tbody th { position: sticky; left: 0; }
-.footer-buttons {
-  display: flex;
-  justify-content: flex-end;
+.footer {
   position: sticky;
   bottom: 0;
   background: #fff;
+  width: 100%;
+}
+.footer-notice {
+  display: flex;
+  justify-content: flex-end;
+  padding-right: 10px;
+  font-size: 12px;
+}
+.footer-buttons {
+  display: flex;
+  justify-content: flex-end;
   width: 100%;
   left: 0;
   padding: 10px;
