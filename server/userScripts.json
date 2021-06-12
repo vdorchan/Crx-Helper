@@ -1,0 +1,10 @@
+[
+  {
+    "name": "HelloMoliHelperUserScript",
+    "url": "/user-scripts/HelloMoliHelperUserScript.js"
+  },
+  {
+    "name": "LiveplatformDataExcel",
+    "url": "/user-scripts/LiveplatformDataExcel.js"
+  }
+]

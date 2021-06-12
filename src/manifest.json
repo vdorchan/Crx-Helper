@@ -1,0 +1,43 @@
+{
+  "name": "__CRX_NAME__",
+  "version": "__VERSION__",
+  "description": "Build an Extension!",
+  "manifest_version": 2,
+  "permissions": [
+    "tabs",
+    "contextMenus",
+    "activeTab",
+    "storage",
+    "notifications",
+    "unlimitedStorage",
+    "<all_urls>",
+    "alarms"
+  ],
+  "options_ui": {
+    "page": "options/index.html",
+    "open_in_tab": true
+  },
+  "browser_action": {
+    "default_icon": {
+      "16": "images/icon16.png",
+      "32": "images/icon32.png",
+      "48": "images/icon48.png",
+      "128": "images/icon128.png"
+    },
+    "default_title": "__CRX_NAME__",
+    "default_popup": "popup/index.html"
+  },
+  "background": {
+    "scripts": [
+      "background/background.js"
+    ],
+    "persistent": true
+  },
+  "icons": {
+    "16": "images/icon16.png",
+    "32": "images/icon32.png",
+    "48": "images/icon48.png",
+    "128": "images/icon128.png"
+  },
+  "content_security_policy": "style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-eval';  object-src 'self' ;"
+}
